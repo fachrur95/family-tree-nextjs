@@ -1,9 +1,28 @@
-import React, { useEffect } from 'react'
+import React, { useEffect, useRef } from 'react'
 import {
   createChart,
   KinshipChart,
+  HourglassChart,
+  RelativesChart,
+  FancyChart,
   DetailedRenderer
 } from 'topola'
+import { interpolateNumber } from 'd3-interpolate';
+import { IntlShape, useIntl } from 'react-intl';
+import { max, min } from 'd3-array';
+import { Media } from '../src/utils/media';
+// import { saveAs } from 'file-saver';
+import { select, Selection } from 'd3-selection';
+import 'd3-transition';
+import {
+  D3ZoomEvent,
+  zoom,
+  ZoomBehavior,
+  ZoomedElementBaseType,
+  zoomTransform,
+} from 'd3-zoom';
+
+const ZOOM_FACTOR = 1.3;
 
 const data = {
   "info": "blablabla",
@@ -2891,36 +2910,246 @@ const data2 = {
   ]
 }
 
-const Chart = () => {
+const zoomed = (size, event) => {
+  const parent = select('#svgContainer').node();
 
-  const onSelectionIndi = (info) => {
-    console.log(info)
+  const scale = event.transform.k;
+  const offsetX = max([0, (parent.clientWidth - size[0] * scale) / 2]);
+  const offsetY = max([0, (parent.clientHeight - size[1] * scale) / 2]);
+  select('#chartSvg')
+    .attr('width', size[0] * scale)
+    .attr('height', size[1] * scale)
+    .attr('transform', `translate(${offsetX}, ${offsetY})`);
+  select('#chart').attr('transform', `scale(${scale})`);
+
+  parent.scrollLeft = -event.transform.x;
+  parent.scrollTop = -event.transform.y;
+}
+
+const scrolled = () => {
+  const parent = select('#svgContainer').node();
+  const x = parent.scrollLeft + parent.clientWidth / 2;
+  const y = parent.scrollTop + parent.clientHeight / 2;
+  const scale = zoomTransform(parent).k;
+  select(parent).call(zoom().translateTo, x / scale, y / scale);
+}
+
+const getStrippedSvg = () => {
+  const svg = document.getElementById('chartSvg')?.cloneNode(true);
+
+  svg.removeAttribute('transform');
+  const parent = select('#svgContainer').node();
+  const scale = zoomTransform(parent).k;
+  svg.setAttribute('width', String(Number(svg.getAttribute('width')) / scale));
+  svg.setAttribute(
+    'height',
+    String(Number(svg.getAttribute('height')) / scale),
+  );
+  svg.querySelector('#chart')?.removeAttribute('transform');
+
+  return svg;
+}
+
+const getSvgContents = () => {
+  return new XMLSerializer().serializeToString(getStrippedSvg());
+}
+
+class ChartWrapper {
+  zoom(factor) {
+    const parent = select('#svgContainer');
+    this.zoomBehavior?.scaleBy(parent, factor);
   }
-  const onSelectionFam = (info) => {
-    console.log(info)
+
+  /**
+   * Renders the chart or performs a transition animation to a new state.
+   * If indiInfo is not given, it means that it is the initial render and no
+   * animation is performed.
+   */
+  renderChart(
+    props,
+    // intl,
+    args = {
+      initialRender: false,
+      resetPosition: false,
+    },
+  ) {
+    // Wait for animation to finish if animation is in progress.
+    if (!args.initialRender && this.animating) {
+      this.rerenderRequired = true;
+      this.rerenderProps = props;
+      this.rerenderResetPosition = args.resetPosition;
+      return;
+    }
+
+    // Freeze changing selection after initial rendering.
+    // if (!args.initialRender && props.freezeAnimation) {
+    //   return;
+    // }
+
+    if (args.initialRender) {
+      (select('#chart').node()).innerHTML = '';
+      this.chart = createChart({
+        // json: props.data,
+        json: data2,
+        // chartType: getChartType(props.chartType),
+        // renderer: getRendererType(props.chartType),
+        chartType: KinshipChart,
+        renderer: DetailedRenderer,
+        svgSelector: '#chart',
+        // indiCallback: (info) => props.onSelection(info),
+        // colors: chartColors.get(props.colors),
+        animate: true,
+        updateSvgSize: false,
+        // locale: intl.locale,
+      });
+    } else {
+      this.chart?.setData(props.data);
+    }
+    // const chartInfo = this.chart?.render({
+    //   startIndi: props.selection.id,
+    //   baseGeneration: props.selection.generation,
+    // });
+    const chartInfo = this.chart?.render();
+    const svg = select('#chartSvg');
+    const parent = select('#svgContainer').node();
+
+    const scale = zoomTransform(parent).k;
+    const zoomOutFactor = min([
+      1,
+      scale,
+      parent.clientWidth / chartInfo.size[0],
+      parent.clientHeight / chartInfo.size[1],
+    ]);
+    const extent = [max([0.1, zoomOutFactor]), 2];
+
+    this.zoomBehavior = zoom()
+      .scaleExtent(extent)
+      .translateExtent([[0, 0], chartInfo.size])
+      .on('zoom', (event) => zoomed(chartInfo.size, event));
+    select(parent).on('scroll', scrolled).call(this.zoomBehavior);
+
+    const scrollTopTween = (scrollTop) => {
+      return () => {
+        const i = interpolateNumber(parent.scrollTop, scrollTop);
+        return (t) => {
+          parent.scrollTop = i(t);
+        };
+      };
+    };
+    const scrollLeftTween = (scrollLeft) => {
+      return () => {
+        const i = interpolateNumber(parent.scrollLeft, scrollLeft);
+        return (t) => {
+          parent.scrollLeft = i(t);
+        };
+      };
+    };
+
+    const dx = parent.clientWidth / 2 - chartInfo.origin[0] * scale;
+    const dy = parent.clientHeight / 2 - chartInfo.origin[1] * scale;
+    const offsetX = max([
+      0,
+      (parent.clientWidth - chartInfo.size[0] * scale) / 2,
+    ]);
+    const offsetY = max([
+      0,
+      (parent.clientHeight - chartInfo.size[1] * scale) / 2,
+    ]);
+    const svgTransition = svg.transition().delay(200).duration(500);
+    const transition = args.initialRender ? svg : svgTransition;
+    transition
+      .attr('transform', `translate(${offsetX}, ${offsetY})`)
+      .attr('width', chartInfo.size[0] * scale)
+      .attr('height', chartInfo.size[1] * scale);
+    if (args.resetPosition) {
+      if (args.initialRender) {
+        parent.scrollLeft = -dx;
+        parent.scrollTop = -dy;
+      } else {
+        svgTransition
+          .tween('scrollLeft', scrollLeftTween(-dx))
+          .tween('scrollTop', scrollTopTween(-dy));
+      }
+    }
+
+    // After the animation is finished, rerender the chart if required.
+    this.animating = true;
+    chartInfo.animationPromise.then(() => {
+      this.animating = false;
+      if (this.rerenderRequired) {
+        this.rerenderRequired = false;
+        // Use `this.rerenderProps` instead of the props in scope because
+        // the props may have been updated in the meantime.
+        this.renderChart(this.rerenderProps, {
+          initialRender: false,
+          resetPosition: !!this.rerenderResetPosition,
+        });
+      }
+    });
   }
+}
+
+const usePrevious = (value) => {
+  const ref = useRef();
+  useEffect(() => {
+    ref.current = value;
+  });
+  return ref.current;
+}
+
+const Chart = (props) => {
+  const chartWrapper = useRef(new ChartWrapper());
+  const prevProps = usePrevious(props);
+  // const intl = useIntl();
 
   useEffect(() => {
-    createChart({
-      json: data2,
-      chartType: KinshipChart,
-      renderer: DetailedRenderer,
-      svgSelector: '#chart',
-      indiCallback: onSelectionIndi,
-      famCallback: onSelectionFam,
-      // colors: chartColors.get(props.colors!),
-      animate: true,
-      updateSvgSize: false,
-      // locale: intl.locale,
-    }).render();
-  })
+    chartWrapper.current.renderChart(props, {
+      initialRender: true,
+      resetPosition: true,
+    });
+  });
+
+  // const onSelectionIndi = (info) => {
+  //   console.log(info)
+  // }
+  // const onSelectionFam = (info) => {
+  //   console.log(info)
+  // }
+
+  // useEffect(() => {
+  //   createChart({
+  //     json: data2,
+  //     chartType: KinshipChart,
+  //     renderer: DetailedRenderer,
+  //     svgSelector: '#chart',
+  //     indiCallback: onSelectionIndi,
+  //     famCallback: onSelectionFam,
+  //     // colors: chartColors.get(props.colors!),
+  //     animate: true,
+  //     updateSvgSize: false,
+  //     // locale: intl.locale,
+  //   }).render();
+  // })
 
   return (
-    <div>
-      <svg id="chartSvg" style={{ width: '100%', height: '100vh' }}>
+    <div id="svgContainer">
+      <Media greaterThanOrEqual="large" className="zoom">
+        <button
+          className="zoom-in"
+        // onClick={() => chartWrapper.current.zoom(ZOOM_FACTOR)}
+        >
+          +
+        </button>
+        <button
+          className="zoom-out"
+        // onClick={() => chartWrapper.current.zoom(1 / ZOOM_FACTOR)}
+        >
+          −
+        </button>
+      </Media>
+      <svg id="chartSvg">
         <g id="chart" />
       </svg>
-      test
     </div>
   )
 }
