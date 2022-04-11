@@ -18,7 +18,11 @@ import {
 import useWindowSize from "../src/utils/windowSize";
 import { Box } from "@mui/system";
 import { useQuery } from "react-query";
-import { Paper } from "@mui/material";
+import { Container, Grid, Paper, TextField, Typography } from "@mui/material";
+import BottomDrawer from "../src/components/Dialogs/bottom";
+import { useForm } from "react-hook-form";
+import Controls from "../src/Controls/Controls"
+import { mapValues } from "lodash";
 /* import { interpolateNumber } from "d3-interpolate";
 import { IntlShape, useIntl } from "react-intl";
 import { max, min } from "d3-array";
@@ -2940,10 +2944,13 @@ const getChart = async () => {
 //   return ref.current;
 // }
 
-const Chart = (props) => {
+const defaultValues = {}
+
+const Chart = () => {
   const Viewer = useRef(null);
+  const [open, setOpen] = useState(false);
   const [tool, setTool] = useState(TOOL_NONE);
-  const [value, setValue] = useState(INITIAL_VALUE);
+  const [valueSVG, setValueSVG] = useState(INITIAL_VALUE);
   const { width, height } = useWindowSize({
     initialWidth: 400,
     initialHeight: 400,
@@ -2952,6 +2959,25 @@ const Chart = (props) => {
   const { data, isSuccess } = useQuery("chart", getChart, {
     staleTime: 15000,
     refetchInterval: 5000,
+  });
+  const [dataIndividual, setDataIndividual] = useState(null);
+  const [dataFamily, setDataFamily] = useState(null);
+  const {
+    control,
+    register,
+    handleSubmit,
+    setValue,
+    getValues,
+    formState: { errors },
+    setError,
+    clearErrors,
+    reset,
+  } = useForm({
+    defaultValues,
+    mode: "onChange",
+    reValidateMode: "onChange",
+    shouldFocusError: true,
+    shouldUnregister: false,
   });
 
   /* const chartWrapper = useRef(new ChartWrapper());
@@ -2965,30 +2991,103 @@ const Chart = (props) => {
     });
   }); */
 
-  const onSelectionIndi = (info) => {
-    console.log(info);
+  const onSelectionIndi = (selection) => {
+    const families = data?.fams || [];
+    const individuals = data?.indis || [];
+    const id = selection.id;
+    const objIndi = individuals.find((el) => el.id === id);
+    const idParent = objIndi.famc;
+    const objFams = families.find((el) => el.id === idParent);
+    const idFather = objFams?.husb;
+    const idMother = objFams?.wife;
+    const objFather = individuals.find((el) => el.id === idFather);
+    const objMother = individuals.find((el) => el.id === idMother);
+    if (objFather && objMother) {
+      objFams.husb_detail = objFather || null;
+      objFams.wife_detail = objMother || null;
+    }
+    // console.log(objIndi);
+    // console.log(objFams);
+    setDataIndividual(objIndi);
+    setDataFamily(objFams);
+    objIndi && setOpen(true);
   };
-  const onSelectionFam = (info) => {
-    console.log(info);
+  const onSelectionFam = (selection) => {
+    console.log(selection);
   };
 
-  const _zoomOnViewerCenter1 = () => Viewer.current.zoomOnViewerCenter(1.1);
-  const _fitSelection1 = () => Viewer.current.fitSelection(40, 40, 200, 200);
-  const _fitToViewer1 = () => Viewer.current.fitToViewer();
+  // const _zoomOnViewerCenter1 = () => Viewer.current.zoomOnViewerCenter(1.1);
+  // const _fitSelection1 = () => Viewer.current.fitSelection(40, 40, 200, 200);
+  // const _fitToViewer1 = () => Viewer.current.fitToViewer();
 
-  /* keep attention! handling the state in the following way doesn't fire onZoom and onPam hooks */
-  const _zoomOnViewerCenter2 = () => setValue(zoomOnViewerCenter(value, 1.1));
-  const _fitSelection2 = () => setValue(fitSelection(value, 40, 40, 200, 200));
-  const _fitToViewer2 = () => setValue(fitToViewer(value));
+  // /* keep attention! handling the state in the following way doesn't fire onZoom and onPam hooks */
+  // const _zoomOnViewerCenter2 = () => setValueSVG(zoomOnViewerCenter(value, 1.1));
+  // const _fitSelection2 = () => setValueSVG(fitSelection(value, 40, 40, 200, 200));
+  // const _fitToViewer2 = () => setValueSVG(fitToViewer(value));
 
   useEffect(() => {
     Viewer.current.fitToViewer();
-    // console.log(width, height);
   }, []);
 
-  // useEffect(() => {
-  //   console.log(data);
-  // }, [data]);
+  useEffect(() => {
+    if (!open) {
+      setDataIndividual(null);
+      setDataFamily(null);
+    } else {
+      if (dataIndividual) {
+        console.log(dataIndividual)
+        const dataIndi = {
+          id: dataIndividual.id,
+          fullName: dataIndividual.firstName,
+          sex: dataIndividual.sex,
+          birthDate: `${dataIndividual.birth.date.year} ${dataIndividual.birth.date.month} ${dataIndividual.birth.date.day}`,
+          birthPlace: dataIndividual.birth.place,
+          deathDate: `${dataIndividual.death.date.year} ${dataIndividual.death.date.month} ${dataIndividual.death.date.day}`,
+          deathPlace: dataIndividual.death.place,
+          familyFrom: dataIndividual.famc,
+          familyId: dataIndividual.fams[0],
+        }
+        mapValues(dataIndi, (value, key) => setValue(key, value));
+      } else {
+        const dataIndi = {
+          id: '',
+          fullName: '',
+          sex: '',
+          birthDate: '',
+          birthPlace: '',
+          deathDate: '',
+          deathPlace: '',
+          familyFrom: '',
+          familyId: '',
+        }
+        mapValues(dataIndi, (value, key) => setValue(key, value));
+      }
+      if (dataFamily) {
+        console.log(dataFamily)
+        const dataFam = {
+          id: dataFamily.id,
+          marriageDate: `${dataFamily.marriage.date.year} ${dataFamily.marriage.date.month} ${dataFamily.marriage.date.day}`,
+          marriagePlace: dataFamily.marriage.place,
+          fatherId: dataFamily.husb,
+          motherId: dataFamily.wife,
+          fatherName: dataFamily.husb_detail.firstName,
+          motherName: dataFamily.wife_detail.firstName,
+        }
+        mapValues(dataFam, (value, key) => setValue(key, value));
+      } else {
+        const dataFam = {
+          id: '',
+          marriageDate: '',
+          marriagePlace: '',
+          fatherId: '',
+          motherId: '',
+          fatherName: '',
+          motherName: '',
+        }
+        mapValues(dataFam, (value, key) => setValue(key, value));
+      }
+    }
+  }, [open, dataIndividual, dataFamily])
 
   useEffect(() => {
     // HourglassChart
@@ -3010,26 +3109,11 @@ const Chart = (props) => {
 
     const chartId = document.getElementById("chart");
     const { width, height } = chartId.getBBox();
-    setSize({ w: width + 50, h: height + 50 });
+    setSize({ w: width + 50, h: height + 150 });
   }, [data, isSuccess]);
 
   return (
     <div style={{ width: "100%", height: "100%" }}>
-      {/* <div id="svgContainer"> */}
-      {/* <Media greaterThanOrEqual="large" className="zoom">
-        <button
-          className="zoom-in"
-          // onClick={() => chartWrapper.current.zoom(ZOOM_FACTOR)}
-        >
-          +
-        </button>
-        <button
-          className="zoom-out"
-          // onClick={() => chartWrapper.current.zoom(1 / ZOOM_FACTOR)}
-        >
-          −
-        </button>
-      </Media> */}
       <Box
         sx={{
           display: "flex",
@@ -3039,34 +3123,89 @@ const Chart = (props) => {
           borderRadius: 1,
         }}
       >
-        <Box component={Paper} sx={{ width: "70%" }}>
-          <ReactSVGPanZoom
-            ref={Viewer}
-            // width={width}
-            width={700}
-            height={height - 100}
-            tool={tool}
-            onChangeTool={setTool}
-            value={value}
-            onChangeValue={setValue}
-            // onZoom={(e) => console.log("zoom")}
-            // onPan={(e) => console.log("pan")}
-            // onClick={(event) =>
-            //   console.log("click", event.x, event.y, event.originalEvent)
-            // }
+        <ReactSVGPanZoom
+          ref={Viewer}
+          width={width - 50}
+          // width={700}
+          height={height - 100}
+          tool={tool}
+          onChangeTool={setTool}
+          value={valueSVG}
+          onChangeValue={setValueSVG}
+        // onZoom={(e) => console.log("zoom")}
+        // onPan={(e) => console.log("pan")}
+        // onClick={(event) =>
+        //   console.log("click", event.x, event.y, event.originalEvent)
+        // }
+        >
+          <svg
+            id="chartSvg"
+            width={size.w}
+            height={size.h}
+            style={{ width: "100%", height: "inherit" }}
           >
-            <svg
-              id="chartSvg"
-              width={size.w}
-              height={size.h}
-              style={{ width: "100%", height: "inherit" }}
-            >
-              <g id="chart" fillOpacity=".5" strokeWidth="4" />
-            </svg>
-          </ReactSVGPanZoom>
-        </Box>
-        <Box>test</Box>
+            <text x="0" y="15" fill="black">{data?.info}</text>
+            <g id="chart" />
+          </svg>
+        </ReactSVGPanZoom>
       </Box>
+      <BottomDrawer
+        open={open}
+        setOpen={setOpen}
+      >
+        <Container maxWidth={false} sx={{ py: 3 }}>
+          <Grid container spacing={1}>
+            <Grid component={Paper} item xs={12} sm={12} md={6} sx={{ p: 2 }}>
+              <Typography>Individual Info</Typography>
+              {/* <TextField label="Standard" variant="standard" /> */}
+              <Controls.Input
+                control={control}
+                label="Full Name"
+                name="fullName"
+                rules={{ required: true }}
+                error={errors.fullName && true}
+                helperText={
+                  errors.fullName &&
+                  (errors.fullName?.message || "This field is required")
+                }
+              />
+            </Grid>
+            <Grid component={Paper} item xs={12} sm={12} md={6} sx={{ p: 2 }}>
+              {dataFamily ? (
+                <>
+                  <Typography>Parent Family Info</Typography>
+                  <Controls.Input
+                    control={control}
+                    label="Father Name"
+                    name="fatherName"
+                    rules={{ required: true }}
+                    error={errors.fatherName && true}
+                    helperText={
+                      errors.fatherName &&
+                      (errors.fatherName?.message || "This field is required")
+                    }
+                  />
+                  <Controls.Input
+                    control={control}
+                    label="Mother Name"
+                    name="motherName"
+                    rules={{ required: true }}
+                    error={errors.motherName && true}
+                    helperText={
+                      errors.motherName &&
+                      (errors.motherName?.message || "This field is required")
+                    }
+                  />
+                </>
+              ) : (
+                <>
+                  <Typography>No Parent Family</Typography>
+                </>
+              )}
+            </Grid>
+          </Grid>
+        </Container>
+      </BottomDrawer>
     </div>
   );
 };
