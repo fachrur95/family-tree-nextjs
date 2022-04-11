@@ -3077,7 +3077,15 @@ const Chart = () => {
         objFams.husb_detail = objFather || null;
         objFams.wife_detail = objMother || null;
       }
-      setDataIndividual(objIndi);
+      const idFamsCouple = objIndi.fams[0];
+      const objFamsCouple = families.find((el) => el.id === idFamsCouple);
+      const idCouple =
+        objFamsCouple?.husb === id ? objFamsCouple?.wife : objFamsCouple?.husb;
+      const objCouple = individuals.find((el) => el.id === idCouple) || null;
+      setDataIndividual({
+        ...objIndi,
+        couple: { ...objFamsCouple, couple_detail: objCouple },
+      });
       setDataFamily(objFams);
       setDataChildren(null);
       objIndi && setOpen(true);
@@ -3136,6 +3144,7 @@ const Chart = () => {
     } else {
       setDisabledChild({});
       if (dataIndividual) {
+        console.log(dataIndividual);
         const dataIndi = {
           id: dataIndividual.id,
           fullName: dataIndividual.firstName,
