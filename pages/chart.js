@@ -2948,6 +2948,7 @@ const defaultValues = {}
 
 const Chart = () => {
   const Viewer = useRef(null);
+  const [disabled, setDisabled] = useState({ indi: true, fams: true, child: true });
   const [open, setOpen] = useState(false);
   const [tool, setTool] = useState(TOOL_NONE);
   const [valueSVG, setValueSVG] = useState(INITIAL_VALUE);
@@ -2962,6 +2963,7 @@ const Chart = () => {
   });
   const [dataIndividual, setDataIndividual] = useState(null);
   const [dataFamily, setDataFamily] = useState(null);
+  const [dataChildren, setDataChildren] = useState(null);
   const {
     control,
     register,
@@ -3011,9 +3013,34 @@ const Chart = () => {
     setDataIndividual(objIndi);
     setDataFamily(objFams);
     objIndi && setOpen(true);
+    setDisabled({ ...disabled, fams: true, indi: false });
   };
   const onSelectionFam = (selection) => {
-    console.log(selection);
+    // console.log(selection);
+    const families = data?.fams || [];
+    const individuals = data?.indis || [];
+    const id = selection.id;
+    // const objIndi = individuals.find((el) => el.id === id);
+    // const idParent = objIndi.famc;
+    const objFams = families.find((el) => el.id === id);
+    const idFather = objFams?.husb;
+    const idMother = objFams?.wife;
+    const arrChild = objFams?.children;
+    const objFather = individuals.find((el) => el.id === idFather);
+    const objMother = individuals.find((el) => el.id === idMother);
+    const objChildren = arrChild?.map(item => individuals.find((el) => el.id === item))
+    if (objFather && objMother) {
+      objFams.husb_detail = objFather || null;
+      objFams.wife_detail = objMother || null;
+    }
+    // console.log(data?.fams);
+    console.log(objChildren);
+    // console.log(objFams);
+    // setDataIndividual(objIndi);
+    setDataIndividual(null);
+    setDataFamily(objFams);
+    objFams && setOpen(true);
+    setDisabled({ ...disabled, indi: true, fams: false });
   };
 
   // const _zoomOnViewerCenter1 = () => Viewer.current.zoomOnViewerCenter(1.1);
@@ -3035,7 +3062,7 @@ const Chart = () => {
       setDataFamily(null);
     } else {
       if (dataIndividual) {
-        console.log(dataIndividual)
+        // console.log(dataIndividual)
         const dataIndi = {
           id: dataIndividual.id,
           fullName: dataIndividual.firstName,
@@ -3063,7 +3090,7 @@ const Chart = () => {
         mapValues(dataIndi, (value, key) => setValue(key, value));
       }
       if (dataFamily) {
-        console.log(dataFamily)
+        // console.log(dataFamily)
         const dataFam = {
           id: dataFamily.id,
           marriageDate: `${dataFamily.marriage.date.year} ${dataFamily.marriage.date.month} ${dataFamily.marriage.date.day}`,
@@ -3104,6 +3131,7 @@ const Chart = () => {
         // colors: chartColors.get(props.colors!),
         animate: true,
         updateSvgSize: false,
+        // horizontal: true,
         // locale: intl.locale,
       }).render();
 
@@ -3155,21 +3183,24 @@ const Chart = () => {
       >
         <Container maxWidth={false} sx={{ py: 3 }}>
           <Grid container spacing={1}>
-            <Grid component={Paper} item xs={12} sm={12} md={6} sx={{ p: 2 }}>
-              <Typography>Individual Info</Typography>
-              {/* <TextField label="Standard" variant="standard" /> */}
-              <Controls.Input
-                control={control}
-                label="Full Name"
-                name="fullName"
-                rules={{ required: true }}
-                error={errors.fullName && true}
-                helperText={
-                  errors.fullName &&
-                  (errors.fullName?.message || "This field is required")
-                }
-              />
-            </Grid>
+            {dataIndividual && (
+              <Grid component={Paper} item xs={12} sm={12} md={6} sx={{ p: 2 }}>
+                <Typography>Individual Info</Typography>
+                {/* <TextField label="Standard" variant="standard" /> */}
+                <Controls.Input
+                  control={control}
+                  label="Full Name"
+                  name="fullName"
+                  rules={{ required: true }}
+                  error={errors.fullName && true}
+                  helperText={
+                    errors.fullName &&
+                    (errors.fullName?.message || "This field is required")
+                  }
+                  disabled={disabled.indi}
+                />
+              </Grid>
+            )}
             <Grid component={Paper} item xs={12} sm={12} md={6} sx={{ p: 2 }}>
               {dataFamily ? (
                 <>
@@ -3184,6 +3215,7 @@ const Chart = () => {
                       errors.fatherName &&
                       (errors.fatherName?.message || "This field is required")
                     }
+                    disabled={disabled.fams}
                   />
                   <Controls.Input
                     control={control}
@@ -3195,6 +3227,7 @@ const Chart = () => {
                       errors.motherName &&
                       (errors.motherName?.message || "This field is required")
                     }
+                    disabled={disabled.fams}
                   />
                 </>
               ) : (
@@ -3203,6 +3236,11 @@ const Chart = () => {
                 </>
               )}
             </Grid>
+            {dataChildren && (
+              <Grid component={Paper} item xs={12} sm={12} md={6} sx={{ p: 2 }}>
+                <Typography>Children</Typography>
+              </Grid>
+            )}
           </Grid>
         </Container>
       </BottomDrawer>
