@@ -1,30 +1,34 @@
 import React, { forwardRef } from "react";
 import TextField from "@mui/material/TextField";
-import AdapterDateFns from "@mui/lab/AdapterDateFns";
-import LocalizationProvider from "@mui/lab/LocalizationProvider";
-import MuiDatePicker from "@mui/lab/DatePicker";
+import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
+import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
+import { DatePicker as MuiDatePicker } from "@mui/x-date-pickers/DatePicker";
 
 const DatePicker = forwardRef((props, ref) => {
-  const { name, label, value, onChange, fullWidth, ...others } = props;
-
+  const { name, label, value, onChange, ...others } = props;
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns}>
       <MuiDatePicker
-        autoOk
-        disableToolbar
+        // autoOk
+        // disableToolbar
         ref={ref}
-        variant="inline"
-        inputVariant="outlined"
+        // variant="inline"
+        // inputVariant="outlined"
         name={name}
         label={label}
         value={value}
-        format="MM/dd/yyyy"
+        // format="MM/dd/yyyy"
         onChange={onChange}
-        KeyboardButtonProps={{
-          "aria-label": "change date",
-        }}
+        // KeyboardButtonProps={{
+        //   "aria-label": "change date",
+        // }}
         renderInput={(params) => (
-          <TextField {...params} fullWidth={true} size="small" />
+          <TextField
+            {...params}
+            fullWidth={true}
+            // size="small"
+            variant="standard"
+          />
         )}
         {...others}
       />

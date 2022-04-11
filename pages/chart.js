@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   INITIAL_VALUE,
   ReactSVGPanZoom,
@@ -18,11 +18,27 @@ import {
 import useWindowSize from "../src/utils/windowSize";
 import { Box } from "@mui/system";
 import { useQuery } from "react-query";
-import { Container, Grid, Paper, TextField, Typography } from "@mui/material";
+import {
+  Container,
+  Grid,
+  IconButton,
+  Paper,
+  TextField,
+  Tooltip,
+  Typography,
+} from "@mui/material";
 import BottomDrawer from "../src/components/Dialogs/bottom";
-import { useForm } from "react-hook-form";
-import Controls from "../src/Controls/Controls"
+import { useFieldArray, useForm } from "react-hook-form";
+import Controls from "../src/Controls/Controls";
 import { mapValues } from "lodash";
+import {
+  Add,
+  CircleOutlined,
+  Female,
+  Male,
+  Remove,
+  Visibility,
+} from "@mui/icons-material";
 /* import { interpolateNumber } from "d3-interpolate";
 import { IntlShape, useIntl } from "react-intl";
 import { max, min } from "d3-array";
@@ -2944,11 +2960,58 @@ const getChart = async () => {
 //   return ref.current;
 // }
 
-const defaultValues = {}
+const defaultValues = {
+  sex: "M",
+};
+
+const sexItems = [
+  { id: "M", title: "Male" },
+  { id: "F", title: "Female" },
+  { id: "O", title: "Other" },
+];
+
+const tempChildren = {
+  indiId: "",
+  fullName: "",
+  sex: "",
+  birthDate: null,
+  birthPlace: "",
+  deathDate: null,
+  deathPlace: "",
+};
+
+const Item = (props) => {
+  const { sx, ...other } = props;
+  return (
+    <Box
+      sx={{
+        // p: 1,
+        m: 1,
+        // bgcolor: (theme) =>
+        //   theme.palette.mode === "dark" ? "#101010" : "grey.100",
+        // color: (theme) =>
+        //   theme.palette.mode === "dark" ? "grey.300" : "grey.800",
+        // border: "1px solid",
+        // borderColor: (theme) =>
+        //   theme.palette.mode === "dark" ? "grey.800" : "grey.300",
+        // borderRadius: 2,
+        // fontSize: "0.875rem",
+        // fontWeight: "700",
+        ...sx,
+      }}
+      {...other}
+    />
+  );
+};
 
 const Chart = () => {
   const Viewer = useRef(null);
-  const [disabled, setDisabled] = useState({ indi: true, fams: true, child: true });
+  const [disabled, setDisabled] = useState({
+    indi: true,
+    fams: true,
+    child: true,
+  });
+  const [disabledChild, setDisabledChild] = useState({});
   const [open, setOpen] = useState(false);
   const [tool, setTool] = useState(TOOL_NONE);
   const [valueSVG, setValueSVG] = useState(INITIAL_VALUE);
@@ -2982,6 +3045,11 @@ const Chart = () => {
     shouldUnregister: false,
   });
 
+  const { fields, append, remove } = useFieldArray({
+    control,
+    name: "children",
+  });
+
   /* const chartWrapper = useRef(new ChartWrapper());
   const prevProps = usePrevious(props);
   // const intl = useIntl();
@@ -2993,54 +3061,59 @@ const Chart = () => {
     });
   }); */
 
-  const onSelectionIndi = (selection) => {
-    const families = data?.fams || [];
-    const individuals = data?.indis || [];
-    const id = selection.id;
-    const objIndi = individuals.find((el) => el.id === id);
-    const idParent = objIndi.famc;
-    const objFams = families.find((el) => el.id === idParent);
-    const idFather = objFams?.husb;
-    const idMother = objFams?.wife;
-    const objFather = individuals.find((el) => el.id === idFather);
-    const objMother = individuals.find((el) => el.id === idMother);
-    if (objFather && objMother) {
-      objFams.husb_detail = objFather || null;
-      objFams.wife_detail = objMother || null;
-    }
-    // console.log(objIndi);
-    // console.log(objFams);
-    setDataIndividual(objIndi);
-    setDataFamily(objFams);
-    objIndi && setOpen(true);
-    setDisabled({ ...disabled, fams: true, indi: false });
-  };
-  const onSelectionFam = (selection) => {
-    // console.log(selection);
-    const families = data?.fams || [];
-    const individuals = data?.indis || [];
-    const id = selection.id;
-    // const objIndi = individuals.find((el) => el.id === id);
-    // const idParent = objIndi.famc;
-    const objFams = families.find((el) => el.id === id);
-    const idFather = objFams?.husb;
-    const idMother = objFams?.wife;
-    const arrChild = objFams?.children;
-    const objFather = individuals.find((el) => el.id === idFather);
-    const objMother = individuals.find((el) => el.id === idMother);
-    const objChildren = arrChild?.map(item => individuals.find((el) => el.id === item))
-    if (objFather && objMother) {
-      objFams.husb_detail = objFather || null;
-      objFams.wife_detail = objMother || null;
-    }
-    // console.log(data?.fams);
-    console.log(objChildren);
-    // console.log(objFams);
-    // setDataIndividual(objIndi);
-    setDataIndividual(null);
-    setDataFamily(objFams);
-    objFams && setOpen(true);
-    setDisabled({ ...disabled, indi: true, fams: false });
+  const onSelectionIndi = useCallback(
+    (selection) => {
+      const families = data?.fams || [];
+      const individuals = data?.indis || [];
+      const id = selection.id;
+      const objIndi = individuals.find((el) => el.id === id);
+      const idParent = objIndi.famc;
+      const objFams = families.find((el) => el.id === idParent);
+      const idFather = objFams?.husb;
+      const idMother = objFams?.wife;
+      const objFather = individuals.find((el) => el.id === idFather);
+      const objMother = individuals.find((el) => el.id === idMother);
+      if (objFather && objMother) {
+        objFams.husb_detail = objFather || null;
+        objFams.wife_detail = objMother || null;
+      }
+      setDataIndividual(objIndi);
+      setDataFamily(objFams);
+      setDataChildren(null);
+      objIndi && setOpen(true);
+      setDisabled({ ...disabled, fams: true, indi: false });
+    },
+    [data, disabled]
+  );
+  const onSelectionFam = useCallback(
+    (selection) => {
+      const families = data?.fams || [];
+      const individuals = data?.indis || [];
+      const id = selection.id;
+      const objFams = families.find((el) => el.id === id);
+      const idFather = objFams?.husb;
+      const idMother = objFams?.wife;
+      const arrChild = objFams?.children;
+      const objFather = individuals.find((el) => el.id === idFather);
+      const objMother = individuals.find((el) => el.id === idMother);
+      const arrChildren =
+        arrChild?.map((item) => individuals.find((el) => el.id === item)) || [];
+      if (objFather && objMother) {
+        objFams.husb_detail = objFather || null;
+        objFams.wife_detail = objMother || null;
+      }
+      setDataIndividual(null);
+      setDataFamily(objFams);
+      setDataChildren(arrChildren);
+      objFams && setOpen(true);
+      setDisabled({ ...disabled, indi: true, fams: false });
+    },
+    [data, disabled]
+  );
+
+  const handleChangeSexLine = (name, value) => {
+    const nextValue = value === "O" ? "M" : value === "M" ? "F" : "O";
+    setValue(name, nextValue);
   };
 
   // const _zoomOnViewerCenter1 = () => Viewer.current.zoomOnViewerCenter(1.1);
@@ -3061,60 +3134,97 @@ const Chart = () => {
       setDataIndividual(null);
       setDataFamily(null);
     } else {
+      setDisabledChild({});
       if (dataIndividual) {
-        // console.log(dataIndividual)
         const dataIndi = {
           id: dataIndividual.id,
           fullName: dataIndividual.firstName,
           sex: dataIndividual.sex,
-          birthDate: `${dataIndividual.birth.date.year} ${dataIndividual.birth.date.month} ${dataIndividual.birth.date.day}`,
+          birthDate: dataIndividual.birth.date.year
+            ? `${dataIndividual.birth.date.year}-${dataIndividual.birth.date.month}-${dataIndividual.birth.date.day}`
+            : null,
           birthPlace: dataIndividual.birth.place,
-          deathDate: `${dataIndividual.death.date.year} ${dataIndividual.death.date.month} ${dataIndividual.death.date.day}`,
+          deathDate: dataIndividual.death.date.year
+            ? `${dataIndividual.death.date.year}-${dataIndividual.death.date.month}-${dataIndividual.death.date.day}`
+            : null,
           deathPlace: dataIndividual.death.place,
           familyFrom: dataIndividual.famc,
           familyId: dataIndividual.fams[0],
-        }
+        };
         mapValues(dataIndi, (value, key) => setValue(key, value));
       } else {
         const dataIndi = {
-          id: '',
-          fullName: '',
-          sex: '',
-          birthDate: '',
-          birthPlace: '',
-          deathDate: '',
-          deathPlace: '',
-          familyFrom: '',
-          familyId: '',
-        }
+          id: "",
+          fullName: "",
+          sex: "M",
+          birthDate: "",
+          birthPlace: "",
+          deathDate: "",
+          deathPlace: "",
+          familyFrom: "",
+          familyId: "",
+        };
         mapValues(dataIndi, (value, key) => setValue(key, value));
       }
       if (dataFamily) {
         // console.log(dataFamily)
         const dataFam = {
           id: dataFamily.id,
-          marriageDate: `${dataFamily.marriage.date.year} ${dataFamily.marriage.date.month} ${dataFamily.marriage.date.day}`,
+          marriageDate: dataFamily.marriage.date.year
+            ? `${dataFamily.marriage.date.year}-${dataFamily.marriage.date.month}-${dataFamily.marriage.date.day}`
+            : null,
           marriagePlace: dataFamily.marriage.place,
           fatherId: dataFamily.husb,
           motherId: dataFamily.wife,
           fatherName: dataFamily.husb_detail.firstName,
           motherName: dataFamily.wife_detail.firstName,
-        }
+        };
         mapValues(dataFam, (value, key) => setValue(key, value));
       } else {
         const dataFam = {
-          id: '',
-          marriageDate: '',
-          marriagePlace: '',
-          fatherId: '',
-          motherId: '',
-          fatherName: '',
-          motherName: '',
-        }
+          id: "",
+          marriageDate: "",
+          marriagePlace: "",
+          fatherId: "",
+          motherId: "",
+          fatherName: "",
+          motherName: "",
+        };
         mapValues(dataFam, (value, key) => setValue(key, value));
       }
+      if (dataChildren) {
+        // console.log(dataChildren);
+        const dataChild = {
+          children: dataChildren,
+        };
+        mapValues(dataChild, (value, key) => {
+          if (key === "children") {
+            const childrenData = value.map((el, i) => {
+              setDisabledChild((old) => ({ ...old, [i]: true }));
+              return {
+                indiId: el.id,
+                fullName: el.firstName,
+                sex: el.sex,
+                birthDate: el.birth.date.year
+                  ? `${el.birth.date.year}-${el.birth.date.month}-${el.birth.date.day}`
+                  : null,
+                birthPlace: el.birth.place,
+                deathDate: el.death.date.year
+                  ? `${el.death.date.year}-${el.death.date.month}-${el.death.date.day}`
+                  : null,
+                deathPlace: el.death.place,
+              };
+            });
+            setValue(key, childrenData);
+          } else {
+            setValue(key, value);
+          }
+        });
+      } else {
+        setValue("children", []);
+      }
     }
-  }, [open, dataIndividual, dataFamily])
+  }, [open, setValue, dataIndividual, dataFamily, dataChildren]);
 
   useEffect(() => {
     // HourglassChart
@@ -3138,7 +3248,7 @@ const Chart = () => {
     const chartId = document.getElementById("chart");
     const { width, height } = chartId.getBBox();
     setSize({ w: width + 50, h: height + 150 });
-  }, [data, isSuccess]);
+  }, [data, isSuccess, onSelectionIndi, onSelectionFam]);
 
   return (
     <div style={{ width: "100%", height: "100%" }}>
@@ -3160,11 +3270,11 @@ const Chart = () => {
           onChangeTool={setTool}
           value={valueSVG}
           onChangeValue={setValueSVG}
-        // onZoom={(e) => console.log("zoom")}
-        // onPan={(e) => console.log("pan")}
-        // onClick={(event) =>
-        //   console.log("click", event.x, event.y, event.originalEvent)
-        // }
+          // onZoom={(e) => console.log("zoom")}
+          // onPan={(e) => console.log("pan")}
+          // onClick={(event) =>
+          //   console.log("click", event.x, event.y, event.originalEvent)
+          // }
         >
           <svg
             id="chartSvg"
@@ -3172,19 +3282,18 @@ const Chart = () => {
             height={size.h}
             style={{ width: "100%", height: "inherit" }}
           >
-            <text x="0" y="15" fill="black">{data?.info}</text>
+            <text x="0" y="15" fill="black">
+              {data?.info}
+            </text>
             <g id="chart" />
           </svg>
         </ReactSVGPanZoom>
       </Box>
-      <BottomDrawer
-        open={open}
-        setOpen={setOpen}
-      >
+      <BottomDrawer open={open} setOpen={setOpen}>
         <Container maxWidth={false} sx={{ py: 3 }}>
           <Grid container spacing={1}>
             {dataIndividual && (
-              <Grid component={Paper} item xs={12} sm={12} md={6} sx={{ p: 2 }}>
+              <Grid component={Paper} item xs={12} sm={12} md={4} sx={{ p: 2 }}>
                 <Typography>Individual Info</Typography>
                 {/* <TextField label="Standard" variant="standard" /> */}
                 <Controls.Input
@@ -3199,9 +3308,47 @@ const Chart = () => {
                   }
                   disabled={disabled.indi}
                 />
+                <Controls.RadioGroup
+                  name="sex"
+                  label="Sex"
+                  color="primary"
+                  items={sexItems}
+                  control={control}
+                  disabled={disabled.indi}
+                />
+                <Controls.DatePicker
+                  name="birthDate"
+                  label="Birth Date"
+                  value={getValues("birthDate")}
+                  onChange={(date) => {
+                    setValue("birthDate", date);
+                  }}
+                  disabled={disabled.indi}
+                />
+                <Controls.Input
+                  control={control}
+                  label="Birth Place"
+                  name="birthPlace"
+                  disabled={disabled.indi}
+                />
+                <Controls.DatePicker
+                  name="deathDate"
+                  label="Death Date"
+                  value={getValues("deathDate")}
+                  onChange={(date) => {
+                    setValue("deathDate", date);
+                  }}
+                  disabled={disabled.indi}
+                />
+                <Controls.Input
+                  control={control}
+                  label="Death Place"
+                  name="deathPlace"
+                  disabled={disabled.indi}
+                />
               </Grid>
             )}
-            <Grid component={Paper} item xs={12} sm={12} md={6} sx={{ p: 2 }}>
+            <Grid component={Paper} item xs={12} sm={12} md={4} sx={{ p: 2 }}>
               {dataFamily ? (
                 <>
                   <Typography>Parent Family Info</Typography>
@@ -3215,7 +3362,7 @@ const Chart = () => {
                       errors.fatherName &&
                       (errors.fatherName?.message || "This field is required")
                     }
-                    disabled={disabled.fams}
+                    disabled={true}
                   />
                   <Controls.Input
                     control={control}
@@ -3227,6 +3374,21 @@ const Chart = () => {
                       errors.motherName &&
                       (errors.motherName?.message || "This field is required")
                     }
+                    disabled={true}
+                  />
+                  <Controls.DatePicker
+                    name="marriageDate"
+                    label="Marriage Date"
+                    value={getValues("marriageDate")}
+                    onChange={(date) => {
+                      setValue("marriageDate", date);
+                    }}
+                    disabled={disabled.fams}
+                  />
+                  <Controls.Input
+                    control={control}
+                    label="Marriage Place"
+                    name="marriagePlace"
                     disabled={disabled.fams}
                   />
                 </>
@@ -3237,8 +3399,136 @@ const Chart = () => {
               )}
             </Grid>
             {dataChildren && (
-              <Grid component={Paper} item xs={12} sm={12} md={6} sx={{ p: 2 }}>
+              <Grid component={Paper} item xs={12} sm={12} md={8} sx={{ p: 2 }}>
                 <Typography>Children</Typography>
+                <IconButton
+                  aria-label="add"
+                  color="primary"
+                  onClick={() => append(tempChildren)}
+                >
+                  <Add />
+                </IconButton>
+                {fields?.map((item, index) => (
+                  <Box
+                    key={index}
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      // p: 1,
+                      // m: 1,
+                      bgcolor: "background.paper",
+                      // height: 100,
+                      borderRadius: 1,
+                    }}
+                  >
+                    {/* <Item>{item.fullName}</Item> */}
+                    <Item>{index + 1}</Item>
+                    <Item>
+                      <Controls.Input
+                        label="Full Name"
+                        control={control}
+                        name={`children[${index}].fullName`}
+                        defaultValue={item.fullName}
+                        disabled={disabledChild[index]}
+                      />
+                    </Item>
+                    <Item>
+                      <Tooltip
+                        title={
+                          getValues(`children[${index}].sex`) === "M"
+                            ? "Male"
+                            : getValues(`children[${index}].sex`) === "F"
+                            ? "Female"
+                            : "Other"
+                        }
+                      >
+                        <span>
+                          <IconButton
+                            onClick={() =>
+                              handleChangeSexLine(
+                                `children[${index}].sex`,
+                                getValues(`children[${index}].sex`)
+                              )
+                            }
+                            disabled={disabledChild[index]}
+                          >
+                            {getValues(`children[${index}].sex`) === "M" ? (
+                              <Male />
+                            ) : getValues(`children[${index}].sex`) === "F" ? (
+                              <Female />
+                            ) : (
+                              <CircleOutlined />
+                            )}
+                          </IconButton>
+                        </span>
+                      </Tooltip>
+                    </Item>
+                    <Item>
+                      <Controls.DatePicker
+                        name={`children[${index}].birthDate`}
+                        label="Birth Date"
+                        value={getValues(`children[${index}].birthDate`)}
+                        onChange={(date) => {
+                          setValue(`children[${index}].birthDate`, date);
+                        }}
+                        defaultValue={item.birthDate}
+                        disabled={disabledChild[index]}
+                      />
+                    </Item>
+                    <Item>
+                      <Controls.Input
+                        label="Birth Place"
+                        control={control}
+                        name={`children[${index}].birthPlace`}
+                        defaultValue={item.birthPlace}
+                        disabled={disabledChild[index]}
+                      />
+                    </Item>
+                    <Item>
+                      <Controls.DatePicker
+                        name={`children[${index}].deathDate`}
+                        label="Death Date"
+                        value={getValues(`children[${index}].deathDate`)}
+                        onChange={(date) => {
+                          setValue(`children[${index}].deathDate`, date);
+                        }}
+                        defaultValue={item.deathDate}
+                        disabled={disabledChild[index]}
+                      />
+                    </Item>
+                    <Item>
+                      <Controls.Input
+                        label="Death Place"
+                        control={control}
+                        name={`children[${index}].deathPlace`}
+                        defaultValue={item.deathPlace}
+                        disabled={disabledChild[index]}
+                      />
+                    </Item>
+                    <Item>
+                      {disabledChild[index] ? (
+                        <IconButton
+                          aria-label="delete"
+                          color="primary"
+                          onClick={() => onSelectionIndi({ id: item.indiId })}
+                        >
+                          <Visibility />
+                        </IconButton>
+                      ) : (
+                        <IconButton
+                          aria-label="delete"
+                          color="error"
+                          onClick={() => {
+                            remove(index);
+                            fields.filter((el, i) => i !== index);
+                          }}
+                        >
+                          <Remove />
+                        </IconButton>
+                      )}
+                    </Item>
+                  </Box>
+                ))}
               </Grid>
             )}
           </Grid>
