@@ -13,7 +13,7 @@ const BottomDrawer = forwardRef((props, ref) => {
     <Box
       sx={{
         width: anchor === "top" || anchor === "bottom" ? "auto" : 250,
-        height: "60vh",
+        height: "65vh",
       }}
       role="presentation"
       // onClick={toggleDrawer(anchor, false)}

@@ -26,6 +26,10 @@ import {
   TextField,
   Tooltip,
   Typography,
+  Collapse,
+  Zoom,
+  Fab,
+  useTheme,
 } from "@mui/material";
 import BottomDrawer from "../src/components/Dialogs/bottom";
 import { useFieldArray, useForm } from "react-hook-form";
@@ -37,6 +41,7 @@ import {
   Female,
   Male,
   Remove,
+  Save,
   Visibility,
 } from "@mui/icons-material";
 /* import { interpolateNumber } from "d3-interpolate";
@@ -2960,6 +2965,13 @@ const getChart = async () => {
 //   return ref.current;
 // }
 
+const fabStyle = {
+  position: "fixed",
+  bottom: 16,
+  right: 16,
+  zIndex: (theme) => theme.zIndex.drawer + 2
+};
+
 const defaultValues = {
   sex: "M",
 };
@@ -3005,6 +3017,7 @@ const Item = (props) => {
 };
 
 const Chart = () => {
+  const theme = useTheme();
   const Viewer = useRef(null);
   const [disabled, setDisabled] = useState({
     indi: true,
@@ -3012,6 +3025,7 @@ const Chart = () => {
     child: true,
   });
   const [disabledChild, setDisabledChild] = useState({});
+  const [openCollapse, setOpenCollapse] = useState(false);
   const [open, setOpen] = useState(false);
   const [tool, setTool] = useState(TOOL_NONE);
   const [valueSVG, setValueSVG] = useState(INITIAL_VALUE);
@@ -3049,6 +3063,11 @@ const Chart = () => {
     control,
     name: "children",
   });
+
+  const transitionDuration = {
+    enter: theme.transitions.duration.enteringScreen,
+    exit: theme.transitions.duration.leavingScreen,
+  };
 
   /* const chartWrapper = useRef(new ChartWrapper());
   const prevProps = usePrevious(props);
@@ -3124,6 +3143,10 @@ const Chart = () => {
     setValue(name, nextValue);
   };
 
+  const onSubmit = (data) => {
+    console.log(data);
+  }
+
   // const _zoomOnViewerCenter1 = () => Viewer.current.zoomOnViewerCenter(1.1);
   // const _fitSelection1 = () => Viewer.current.fitSelection(40, 40, 200, 200);
   // const _fitToViewer1 = () => Viewer.current.fitToViewer();
@@ -3147,33 +3170,47 @@ const Chart = () => {
         console.log(dataIndividual);
         const dataIndi = {
           id: dataIndividual.id,
-          fullName: dataIndividual.firstName,
+          fullName: dataIndividual.firstName || "",
           sex: dataIndividual.sex,
           birthDate: dataIndividual.birth.date.year
             ? `${dataIndividual.birth.date.year}-${dataIndividual.birth.date.month}-${dataIndividual.birth.date.day}`
             : null,
-          birthPlace: dataIndividual.birth.place,
+          birthPlace: dataIndividual.birth.place || "",
           deathDate: dataIndividual.death.date.year
             ? `${dataIndividual.death.date.year}-${dataIndividual.death.date.month}-${dataIndividual.death.date.day}`
             : null,
-          deathPlace: dataIndividual.death.place,
+          deathPlace: dataIndividual.death.place || "",
           familyFrom: dataIndividual.famc,
-          familyId: dataIndividual.fams[0],
+          familyId: dataIndividual.fams[0] || "",
+          isMarriage: dataIndividual.couple.couple_detail !== null,
+          familyCoupleId: dataIndividual.couple?.id || "",
+          coupleId: dataIndividual.couple.couple_detail?.id || "",
+          coupleName: dataIndividual.couple.couple_detail?.firstName || "",
+          marriageDateCouple: dataIndividual.couple.marriage?.date.year ? `${dataIndividual.couple.marriage?.date.year}-${dataIndividual.couple.marriage?.date.month}-${dataIndividual.couple.marriage?.date.day}` : null,
+          marriagePlaceCouple: dataIndividual.couple.marriage?.place || "",
         };
         mapValues(dataIndi, (value, key) => setValue(key, value));
+        setOpenCollapse(dataIndividual.couple.couple_detail !== null);
       } else {
         const dataIndi = {
           id: "",
           fullName: "",
-          sex: "M",
+          sex: "O",
           birthDate: "",
           birthPlace: "",
           deathDate: "",
           deathPlace: "",
           familyFrom: "",
           familyId: "",
+          isMarriage: "",
+          familyCoupleId: "",
+          coupleId: "",
+          coupleName: "",
+          marriageDateCouple: "",
+          marriagePlaceCouple: "",
         };
         mapValues(dataIndi, (value, key) => setValue(key, value));
+        setOpenCollapse(false);
       }
       if (dataFamily) {
         // console.log(dataFamily)
@@ -3182,11 +3219,11 @@ const Chart = () => {
           marriageDate: dataFamily.marriage.date.year
             ? `${dataFamily.marriage.date.year}-${dataFamily.marriage.date.month}-${dataFamily.marriage.date.day}`
             : null,
-          marriagePlace: dataFamily.marriage.place,
+          marriagePlace: dataFamily.marriage.place || "",
           fatherId: dataFamily.husb,
           motherId: dataFamily.wife,
-          fatherName: dataFamily.husb_detail.firstName,
-          motherName: dataFamily.wife_detail.firstName,
+          fatherName: dataFamily.husb_detail.firstName || "",
+          motherName: dataFamily.wife_detail.firstName || "",
         };
         mapValues(dataFam, (value, key) => setValue(key, value));
       } else {
@@ -3212,16 +3249,16 @@ const Chart = () => {
               setDisabledChild((old) => ({ ...old, [i]: true }));
               return {
                 indiId: el.id,
-                fullName: el.firstName,
+                fullName: el.firstName || "",
                 sex: el.sex,
                 birthDate: el.birth.date.year
                   ? `${el.birth.date.year}-${el.birth.date.month}-${el.birth.date.day}`
                   : null,
-                birthPlace: el.birth.place,
+                birthPlace: el.birth.place || "",
                 deathDate: el.death.date.year
                   ? `${el.death.date.year}-${el.death.date.month}-${el.death.date.day}`
                   : null,
-                deathPlace: el.death.place,
+                deathPlace: el.death.place || "",
               };
             });
             setValue(key, childrenData);
@@ -3279,11 +3316,11 @@ const Chart = () => {
           onChangeTool={setTool}
           value={valueSVG}
           onChangeValue={setValueSVG}
-          // onZoom={(e) => console.log("zoom")}
-          // onPan={(e) => console.log("pan")}
-          // onClick={(event) =>
-          //   console.log("click", event.x, event.y, event.originalEvent)
-          // }
+        // onZoom={(e) => console.log("zoom")}
+        // onPan={(e) => console.log("pan")}
+        // onClick={(event) =>
+        //   console.log("click", event.x, event.y, event.originalEvent)
+        // }
         >
           <svg
             id="chartSvg"
@@ -3355,6 +3392,39 @@ const Chart = () => {
                   name="deathPlace"
                   disabled={disabled.indi}
                 />
+                <Controls.Switch
+                  name="isMarriage"
+                  label="Marriage"
+                  control={control}
+                  disabled={disabled.indi}
+                  onChange={(e, value) => {
+                    setValue("isMarriage", value);
+                    setOpenCollapse(value);
+                  }}
+                />
+                <Collapse in={openCollapse}>
+                  <Controls.Input
+                    control={control}
+                    label="Couple Name"
+                    name="coupleName"
+                    disabled={disabled.indi}
+                  />
+                  <Controls.DatePicker
+                    name="marriageDateCouple"
+                    label="Marriage Date"
+                    value={getValues("marriageDateCouple")}
+                    onChange={(date) => {
+                      setValue("marriageDateCouple", date);
+                    }}
+                    disabled={disabled.indi}
+                  />
+                  <Controls.Input
+                    control={control}
+                    label="Marriage Place"
+                    name="marriagePlaceCouple"
+                    disabled={disabled.indi}
+                  />
+                </Collapse>
               </Grid>
             )}
             <Grid component={Paper} item xs={12} sm={12} md={4} sx={{ p: 2 }}>
@@ -3447,8 +3517,8 @@ const Chart = () => {
                           getValues(`children[${index}].sex`) === "M"
                             ? "Male"
                             : getValues(`children[${index}].sex`) === "F"
-                            ? "Female"
-                            : "Other"
+                              ? "Female"
+                              : "Other"
                         }
                       >
                         <span>
@@ -3543,6 +3613,25 @@ const Chart = () => {
           </Grid>
         </Container>
       </BottomDrawer>
+      <Zoom
+        key="primary"
+        in={open}
+        timeout={transitionDuration}
+        style={{
+          transitionDelay: `${open ? transitionDuration.exit : 0
+            }ms`,
+        }}
+        unmountOnExit
+      >
+        <Fab
+          sx={fabStyle}
+          aria-label="Save"
+          color="primary"
+          onClick={() => handleSubmit(onSubmit)()}
+        >
+          <Save />
+        </Fab>
+      </Zoom>
     </div>
   );
 };
