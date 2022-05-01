@@ -18,18 +18,33 @@ const handler = async (req, res) => {
         res.status(500).json({ message: "Internal server error!", err });
       });
   } else if (req.method === "PUT") {
-    const { id } = req.query;
+    const { id, parentId } = req.query;
     const data = JSON.parse(req.body);
-    await axios
-      .put(`${process.env.apiAddress}${basePath}/${id}`, data)
-      .then((result) => {
-        // console.log(result);
-        const response = result.data;
-        res.status(200).json(response);
-      })
-      .catch((err) => {
-        res.status(500).json({ message: "Internal server error!", err });
-      });
+    if (id !== "0") {
+      console.log("atas");
+      await axios
+        .put(`${process.env.apiAddress}${basePath}/${id}`, data)
+        .then((result) => {
+          // console.log(result);
+          const response = result.data;
+          res.status(200).json(response);
+        })
+        .catch((err) => {
+          res.status(500).json({ message: "Internal server error!", err });
+        });
+    } else if (parentId !== "0") {
+      console.log("bawah");
+      await axios
+        .put(`${process.env.apiAddress}${basePath}/parent/${id}`, data)
+        .then((result) => {
+          // console.log(result);
+          const response = result.data;
+          res.status(200).json(response);
+        })
+        .catch((err) => {
+          res.status(500).json({ message: "Internal server error!", err });
+        });
+    }
   } else if (req.method === "GET") {
     await axios
       .get(`${process.env.apiAddress}${basePath}`)

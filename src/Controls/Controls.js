@@ -10,7 +10,7 @@ import Button from "./Button";
 import ButtonGroup from "./ButtonGroup";
 import ActionButton from "./ActionButton";
 import Switch from "./Switch";
-// import Autocompletes from "./Autocompletes";
+import Autocompletes from "./Autocompletes";
 // import AutocompletesX from "./AutocompletesX";
 // import InputCurrencies from "./InputCurrencies";
 // import InputNumber from "./InputNumber";
@@ -30,7 +30,7 @@ const Controls = {
   ButtonGroup,
   ActionButton,
   Switch,
-  // Autocompletes,
+  Autocompletes,
   // AutocompletesX,
   // InputCurrencies,
   // InputNumber,
